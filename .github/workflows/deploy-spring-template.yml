@@ -27,12 +27,14 @@ on:
         description: 'Docker Hub 액세스 토큰'
         required: true
       APP_YML:
-        description: 'src/main/resources/application-prod.yml 파일에 쓰여질 내용'
+        description: 'src/main/resources/application-prod.yml 파일에 쓰여질 내용. (호출하는 리포지토리에 secret이 없으면 빈 값으로 전달됨)'
         required: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      SECRET_APP_YML: ${{ secrets.APP_YML }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -45,12 +47,10 @@ jobs:
           cache: 'gradle'
 
       - name: Create application.yml for production
-        if: ${{ secrets.APP_YML != '' }}
+        if: env.SECRET_APP_YML != ''
         run: |
-          # This script assumes it's running in the root of the service repository
-          # The checkout action ensures this.
           mkdir -p src/main/resources
-          echo "${{ secrets.APP_YML }}" > src/main/resources/application-prod.yml
+          echo "${{ env.SECRET_APP_YML }}" > src/main/resources/application-prod.yml
 
       - name: Build with Gradle
         run: ./gradlew clean bootJar --parallel --daemon --configuration-cache
