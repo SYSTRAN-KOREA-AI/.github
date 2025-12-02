@@ -7,19 +7,16 @@ on:
         description: '배포할 서비스의 이름 (e.g., e2e-test)'
         required: true
         type: string
+    secrets:
       HOST:
         description: '배포 대상 서버의 호스트 주소'
         required: true
-        type: string
       PORT:
         description: '배포 대상 서버의 SSH 포트'
         required: true
-        type: string
       USER:
         description: '배포 대상 서버의 SSH 사용자 이름'
         required: true
-        type: string
-    secrets:
       KEY:
         description: '서버 접속을 위한 Private SSH Key'
         required: true
@@ -78,9 +75,9 @@ jobs:
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ inputs.HOST }}
-          port: ${{ inputs.PORT }}
-          username: ${{ inputs.USER }}
+          host: ${{ secrets.HOST }}
+          port: ${{ secrets.PORT }}
+          username: ${{ secrets.USER }}
           key: ${{ secrets.KEY }}
           script: |
             # 환경 변수 설정
