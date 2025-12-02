@@ -47,6 +47,8 @@ jobs:
       - name: Create application.yml for production
         if: ${{ secrets.APP_YML != '' }}
         run: |
+          # This script assumes it's running in the root of the service repository
+          # The checkout action ensures this.
           mkdir -p src/main/resources
           echo "${{ secrets.APP_YML }}" > src/main/resources/application-prod.yml
 
