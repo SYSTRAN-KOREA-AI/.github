@@ -1,17 +1,17 @@
-name: Spring Deployment Template (Optimized + Prefix Remove)
+name: Spring(JAVA) Deployment Template
 
 on:
   workflow_call:
     inputs:
-      service_name:
+      SERVICE_NAME:
         required: true
         type: string
     secrets:
-      target_host:
+      PREFIX_HOST:
         required: true
-      target_port:
+      PREFIX_PORT:
         required: true
-      target_user:
+      PREFIX_USER:
         required: true
       DOCKERHUB_USERNAME:
         required: true
@@ -23,7 +23,7 @@ on:
         required: true
 
 jobs:
-  deploy:
+  spring-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -32,35 +32,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      ############################################
-      # 🔥 systran- prefix 제거 (반드시 필요)
-      ############################################
-
+      # prefix 제거
       - name: Normalize host
         id: host
         run: |
-          RAW="${{ secrets.target_host }}"
+          RAW="${{ secrets.PREFIX_HOST }}"
           HOST="${RAW#systran-}"
           echo "host=$HOST" >> "$GITHUB_OUTPUT"
 
       - name: Normalize port
         id: port
         run: |
-          RAW="${{ secrets.target_port }}"
+          RAW="${{ secrets.PREFIX_PORT }}"
           PORT="${RAW#systran-}"
           echo "port=$PORT" >> "$GITHUB_OUTPUT"
 
       - name: Normalize user
         id: user
         run: |
-          RAW="${{ secrets.target_user }}"
+          RAW="${{ secrets.PREFIX_USER }}"
           USER="${RAW#systran-}"
           echo "user=$USER" >> "$GITHUB_OUTPUT"
 
-      ############################################
-      # 🔥 Gradle 최적화 빌드 (jar 생성)
-      ############################################
-
+      # Gradle 최적화 빌드 (jar 생성)
       - name: Cache Gradle
         uses: actions/cache@v3
         with:
@@ -89,10 +83,7 @@ jobs:
         env:
           CI: true
 
-      ############################################
-      # 🔥 Docker Build & Push
-      ############################################
-
+      # Docker Build & Push
       - name: DockerHub login
         run: |
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login \
@@ -100,19 +91,19 @@ jobs:
 
       - name: Build image
         run: |
-          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.service_name }}:latest"
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.SERVICE_NAME }}:latest"
           echo "[BUILD] $IMAGE"
           docker build -t "$IMAGE" .
 
       - name: Push image
         run: |
-          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.service_name }}:latest"
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.SERVICE_NAME }}:latest"
           echo "[PUSH] $IMAGE"
           docker push "$IMAGE"
 
       - name: Cleanup old Docker Hub tags (keep only latest)
         run: |
-          TAGS=$(curl -s "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.service_name }}/tags?page_size=100" \
+          TAGS=$(curl -s "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.SERVICE_NAME }}/tags?page_size=100" \
             | jq -r '.results[].name')
 
           for TAG in $TAGS; do
@@ -121,14 +112,11 @@ jobs:
               TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
               curl -s -X DELETE \
                 -H "Authorization: JWT ${TOKEN}" \
-                "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.service_name }}/tags/$TAG/"
+                "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.SERVICE_NAME }}/tags/$TAG/"
             fi
           done
 
-      ############################################
-      # 🔥 SSH로 서버 부분 배포
-      ############################################
-
+      # SSH Login & Deploy
       - name: Prepare SSH key
         run: |
           echo "${{ secrets.TARGET_KEY }}" | base64 --decode > private_key
@@ -141,11 +129,11 @@ jobs:
             set -e
             cd /opt/business_meeting
 
-            echo "[DEPLOY] docker compose pull ${{ inputs.service_name }}"
-            docker compose pull ${{ inputs.service_name }}
+            echo "[DEPLOY] docker compose pull ${{ inputs.SERVICE_NAME }}"
+            docker compose pull ${{ inputs.SERVICE_NAME }}
 
-            echo "[DEPLOY] docker compose up -d ${{ inputs.service_name }}"
-            docker compose up -d ${{ inputs.service_name }}
+            echo "[DEPLOY] docker compose up -d ${{ inputs.SERVICE_NAME }}"
+            docker compose up -d ${{ inputs.SERVICE_NAME }}
 
             echo "[CLEANUP] remove unused images"
             docker image prune -af || true
