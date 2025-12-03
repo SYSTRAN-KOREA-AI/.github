@@ -45,12 +45,12 @@ jobs:
 
       - name: Create .env file
         run: |
-          echo "${{ secrets.ENV_FILE }}" > ${{ inputs.SERVICE_NAME }}/.env
+          echo "${{ secrets.ENV_FILE }}" > .env
         working-directory: ${{ inputs.SERVICE_NAME }}
 
       - name: Install dependencies and build
         run: |
-          npm ci
+          npm install
           npm run build
         working-directory: ${{ inputs.SERVICE_NAME }}
 
