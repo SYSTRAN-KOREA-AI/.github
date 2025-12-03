@@ -1,0 +1,113 @@
+name: React Deployment Template
+
+on:
+  workflow_call:
+    inputs:
+      SERVICE_NAME:
+        required: true
+        type: string
+      TARGET_REMOTE_PATH:
+        required: true
+        type: string
+    secrets:
+      ENV_FILE:
+        required: true
+      PREFIX_HOST:
+        required: true
+      PREFIX_PORT:
+        required: true
+      PREFIX_USER:
+        required: true
+      BASE64_KEY:
+        required: true
+      # DOCKERHUB_USERNAME is not strictly needed for React deployments but kept for consistency
+      DOCKERHUB_USERNAME:
+        required: false
+      # DOCKERHUB_TOKEN is not strictly needed for React deployments but kept for consistency
+      DOCKERHUB_TOKEN:
+        required: false
+
+jobs:
+  build_app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: SYSTRAN-KOREA-AI/${{ inputs.SERVICE_NAME }} # Checkout the specific service repo
+          path: ${{ inputs.SERVICE_NAME }} # Checkout into a directory named after the service
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Assuming Node.js 20.x, adjust if frontend-main uses a different version
+
+      - name: Create .env file
+        run: |
+          echo "${{ secrets.ENV_FILE }}" > ${{ inputs.SERVICE_NAME }}/.env
+        working-directory: ${{ inputs.SERVICE_NAME }}
+
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build
+        working-directory: ${{ inputs.SERVICE_NAME }}
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-artifact
+          path: ${{ inputs.SERVICE_NAME }}/dist
+
+  deploy_app:
+    runs-on: ubuntu-latest
+    needs: build_app
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-artifact
+          path: dist-download
+
+      # prefix 제거 (backend template와 동일)
+      - name: Normalize host
+        id: host
+        run: |
+          RAW="${{ secrets.PREFIX_HOST }}"
+          HOST="${RAW#systran-}"
+          echo "host=$HOST" >> "$GITHUB_OUTPUT"
+
+      - name: Normalize port
+        id: port
+        run: |
+          RAW="${{ secrets.PREFIX_PORT }}"
+          PORT="${RAW#systran-}"
+          echo "port=$PORT" >> "$GITHUB_OUTPUT"
+
+      - name: Normalize user
+        id: user
+        run: |
+          RAW="${{ secrets.PREFIX_USER }}"
+          USER="${RAW#systran-}"
+          echo "user=$USER" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare SSH key
+        run: |
+          echo "${{ secrets.BASE64_KEY }}" | base64 --decode > private_key
+          chmod 600 private_key
+
+      - name: Deploy to server and restart Nginx
+        run: |
+          echo "Deploying dist folder via rsync..."
+          rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no -i private_key -p ${{ steps.port.outputs.port }}" \
+            ./dist-download/dist/ "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}:${{ inputs.TARGET_REMOTE_PATH }}/"
+
+          echo "Restarting Nginx container..."
+          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
+            "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" '
+            set -e
+            cd /opt/business_meeting
+            docker compose restart nginx
+            echo "Nginx container restarted successfully."
+            '
