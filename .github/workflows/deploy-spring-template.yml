@@ -110,6 +110,21 @@ jobs:
           echo "[PUSH] $IMAGE"
           docker push "$IMAGE"
 
+      - name: Cleanup old Docker Hub tags (keep only latest)
+        run: |
+          TAGS=$(curl -s "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.service_name }}/tags?page_size=100" \
+            | jq -r '.results[].name')
+
+          for TAG in $TAGS; do
+            if [ "$TAG" != "latest" ]; then
+              echo "Deleting tag: $TAG"
+              TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
+              curl -s -X DELETE \
+                -H "Authorization: JWT ${TOKEN}" \
+                "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.service_name }}/tags/$TAG/"
+            fi
+          done
+
       ############################################
       # 🔥 SSH로 서버 부분 배포
       ############################################
@@ -119,20 +134,19 @@ jobs:
           echo "${{ secrets.TARGET_KEY }}" | base64 --decode > private_key
           chmod 600 private_key
 
-            - name: Deploy to server
-              run: |
-                SCRIPT="
-                set -e
-                cd /opt/business_meeting
-      
-                echo '[DEPLOY] docker compose pull ${{ inputs.service_name }}'
-                docker compose pull ${{ inputs.service_name }}
-      
-                echo '[DEPLOY] docker compose up -d ${{ inputs.service_name }}'
-                docker compose up -d ${{ inputs.service_name }}
-      
-                echo '[CLEANUP] remove unused images'
-                docker image prune -af || true
-                "
-                ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
-                  "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" "$SCRIPT"
+                  - name: Deploy to server
+                    run: |
+                      ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
+                        "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" '
+                        set -e
+                        cd /opt/business_meeting
+            
+                        echo "[DEPLOY] docker compose pull ${{ inputs.service_name }}"
+                        docker compose pull ${{ inputs.service_name }}
+            
+                        echo "[DEPLOY] docker compose up -d ${{ inputs.service_name }}"
+                        docker compose up -d ${{ inputs.service_name }}
+            
+                        echo "[CLEANUP] remove unused images"
+                        docker image prune -af || true
+                        '
