@@ -121,7 +121,7 @@ jobs:
 
       - name: Deploy to server
         run: |
-          ssh -i private_key -p "${{ steps.port.outputs.port }}" \
+          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
             "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" << 'EOF'
             set -e
             cd /opt/business_meeting
