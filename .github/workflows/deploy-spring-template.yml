@@ -68,8 +68,6 @@ jobs:
             -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
       # 5) 이미지 빌드 & 푸시
-      #    -> docker-compose.yml 의 image 와 맞추기 위해
-      #       ${DOCKERHUB_USERNAME}/${service_name}:latest 로 태깅
       - name: Build image
         run: |
           IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.service_name }}:latest"
