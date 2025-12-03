@@ -1,105 +1,128 @@
-name: SPRING BACKEND DEPLOY TEMPLATE
+name: Spring Deployment Template (Final)
 
 on:
   workflow_call:
     inputs:
-      SERVICE:
-        description: '배포할 서비스의 이름 (e.g., e2e-test)'
+      service_name:
+        description: "docker-compose.yml 안의 service 이름 (예: e2e-test)"
+        required: true
+        type: string
+      target_host:
+        required: true
+        type: string
+      target_port:
+        required: true
+        type: string
+      target_user:
         required: true
         type: string
     secrets:
-      HOST:
-        description: '배포 대상 서버의 호스트 주소'
+      DOCKERHUB_USERNAME:
         required: true
-      PORT:
-        description: '배포 대상 서버의 SSH 포트'
+      DOCKERHUB_TOKEN:
         required: true
-      USER:
-        description: '배포 대상 서버의 SSH 사용자 이름'
+      TARGET_KEY:
         required: true
-      KEY:
-        description: '서버 접속을 위한 Private SSH Key'
-        required: true
-      DOCKER_USER:
-        description: 'Docker Hub 사용자 이름'
-        required: true
-      DOCKER_TOKEN:
-        description: 'Docker Hub 액세스 토큰'
-        required: true
-      APP_YML:
-        description: 'src/main/resources/application-prod.yml 파일에 쓰여질 내용. (호출하는 리포지토리에 secret이 없으면 빈 값으로 전달됨)'
-        required: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      SECRET_APP_YML: ${{ secrets.APP_YML }}
+
     steps:
-      - name: Checkout repository
+      # 1) 코드 체크아웃
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21 and Gradle Cache
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'gradle'
-
-      - name: Create application.yml for production
-        if: env.SECRET_APP_YML != ''
+      # 2) systran prefix 제거 (host / port / user)
+      - name: Normalize host
+        id: host
         run: |
-          mkdir -p src/main/resources
-          echo "${{ env.SECRET_APP_YML }}" > src/main/resources/application-prod.yml
+          RAW="${{ inputs.target_host }}"
+          HOST="${RAW#systran-}"
+          echo "host=$HOST" >> "$GITHUB_OUTPUT"
 
-      - name: Build with Gradle
-        run: ./gradlew clean bootJar --parallel --daemon --configuration-cache
+      - name: Normalize port
+        id: port
+        run: |
+          RAW="${{ inputs.target_port }}"
+          PORT="${RAW#systran-}"
+          echo "port=$PORT" >> "$GITHUB_OUTPUT"
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Normalize user
+        id: user
+        run: |
+          RAW="${{ inputs.target_user }}"
+          USER="${RAW#systran-}"
+          echo "user=$USER" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push Docker image
-        id: build_and_push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_USER }}/${{ inputs.SERVICE }}:${{ github.sha }}
-            ${{ secrets.DOCKER_USER }}/${{ inputs.SERVICE }}:latest
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+      # 3) SSH 키 준비 (Base64 -> 파일)
+      - name: Prepare SSH key
+        run: |
+          echo "${{ secrets.TARGET_KEY }}" | base64 --decode > private_key
+          chmod 600 private_key
 
-      - name: Deploy to Server via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.HOST }}
-          port: ${{ secrets.PORT }}
-          username: ${{ secrets.USER }}
-          key: ${{ secrets.KEY }}
-          script: |
-            # 환경 변수 설정
-            IMAGE_NAME="${{ secrets.DOCKER_USER }}/${{ inputs.SERVICE }}"
-            SERVICE_DIR="/opt/business_meeting/${{ inputs.SERVICE }}"
-            
-            echo ">>> [1] 서비스 디렉토리로 이동: ${SERVICE_DIR}"
-            cd $SERVICE_DIR
-            
-            echo ">>> [2] 최신 Docker 이미지 pull"
-            docker pull $IMAGE_NAME:latest
-            
-            echo ">>> [3] 기존 컨테이너 종료"
-            docker compose down
-            
-            echo ">>> [4] 새 컨테이너 실행"
-            docker compose up -d
-            
-            echo ">>> [5] 현재 배포된 버전을 제외한 모든 구버전 이미지 삭제"
-            docker image prune -a -f --filter "label=org.opencontainers.image.revision!=${{ github.sha }}"
-            
-            echo ">>> [6] 실행 상태 확인"
-            docker ps -a --filter "name=${{ inputs.SERVICE }}"
+      # 4) DockerHub 로그인
+      - name: DockerHub login
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login \
+            -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      # 5) 이미지 빌드 & 푸시
+      #    -> docker-compose.yml 의 image 와 맞추기 위해
+      #       ${DOCKERHUB_USERNAME}/${service_name}:latest 로 태깅
+      - name: Build image
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.service_name }}:latest"
+          echo "[BUILD] $IMAGE"
+          docker build -t "$IMAGE" .
+
+      - name: Push image
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.service_name }}:latest"
+          echo "[PUSH] $IMAGE"
+          docker push "$IMAGE"
+
+      # 6) Docker Hub 쪽 오래된 태그 정리 (원하면 끌 수도 있게 별도 step)
+      #    현재 가정: latest 만 쓰거나, 과거 태그 필요 없다는 전제.
+      - name: Cleanup old Docker Hub tags (keep latest only)
+        run: |
+          REPO="${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.service_name }}"
+          echo "[CLEANUP] Docker Hub repo: $REPO"
+
+          TOKEN=$(curl -s -H "Content-Type: application/json" \
+            -X POST \
+            -d "{\"username\": \"${{ secrets.DOCKERHUB_USERNAME }}\", \"password\": \"${{ secrets.DOCKERHUB_TOKEN }}\"}" \
+            https://hub.docker.com/v2/users/login/ | jq -r .token)
+
+          TAGS=$(curl -s -H "Authorization: JWT $TOKEN" \
+            "https://hub.docker.com/v2/repositories/$REPO/tags/?page_size=100" \
+            | jq -r '.results[].name')
+
+          for TAG in $TAGS; do
+            if [ "$TAG" != "latest" ]; then
+              echo "[CLEANUP] delete $REPO:$TAG"
+              curl -s -X DELETE \
+                -H "Authorization: JWT $TOKEN" \
+                "https://hub.docker.com/v2/repositories/$REPO/tags/$TAG/" >/dev/null
+            fi
+          done
+
+      # 7) 서버 접속해서 해당 service 만 부분 배포
+      - name: Deploy on server (partial update)
+        run: |
+          ssh -i private_key -p "${{ steps.port.outputs.port }}" \
+            "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" << 'EOF'
+            set -e
+
+            echo "[DEPLOY] move to /opt/business_meeting"
+            cd /opt/business_meeting
+
+            echo "[DEPLOY] docker compose pull ${{ inputs.service_name }}"
+            docker compose pull ${{ inputs.service_name }}
+
+            echo "[DEPLOY] docker compose up -d ${{ inputs.service_name }}"
+            docker compose up -d ${{ inputs.service_name }}
+
+            echo "[CLEANUP] remove unused docker images on server"
+            docker image prune -af || true
+            EOF
