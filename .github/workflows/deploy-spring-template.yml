@@ -23,7 +23,7 @@ on:
         required: true
 
 jobs:
-  build_and_cleanup_dockerhub:
+  build_and_push_dockerhub:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -95,7 +95,7 @@ jobs:
 
   deploy_to_server:
     runs-on: ubuntu-latest
-    needs: build_and_cleanup_dockerhub
+    needs: build_and_push_dockerhub
     steps:
       # prefix 제거
       - name: Normalize host
