@@ -6,16 +6,13 @@ on:
       service_name:
         required: true
         type: string
+    secrets:
       target_host:
         required: true
-        type: string
       target_port:
         required: true
-        type: string
       target_user:
         required: true
-        type: string
-    secrets:
       DOCKERHUB_USERNAME:
         required: true
       DOCKERHUB_TOKEN:
@@ -42,21 +39,21 @@ jobs:
       - name: Normalize host
         id: host
         run: |
-          RAW="${{ inputs.target_host }}"
+          RAW="${{ secrets.target_host }}"
           HOST="${RAW#systran-}"
           echo "host=$HOST" >> "$GITHUB_OUTPUT"
 
       - name: Normalize port
         id: port
         run: |
-          RAW="${{ inputs.target_port }}"
+          RAW="${{ secrets.target_port }}"
           PORT="${RAW#systran-}"
           echo "port=$PORT" >> "$GITHUB_OUTPUT"
 
       - name: Normalize user
         id: user
         run: |
-          RAW="${{ inputs.target_user }}"
+          RAW="${{ secrets.target_user }}"
           USER="${RAW#systran-}"
           echo "user=$USER" >> "$GITHUB_OUTPUT"
 
