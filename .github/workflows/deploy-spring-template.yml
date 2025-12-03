@@ -119,19 +119,20 @@ jobs:
           echo "${{ secrets.TARGET_KEY }}" | base64 --decode > private_key
           chmod 600 private_key
 
-      - name: Deploy to server
-        run: |
-          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
-            "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" << 'EOF'
-            set -e
-            cd /opt/business_meeting
-
-            echo "[DEPLOY] docker compose pull ${{ inputs.service_name }}"
-            docker compose pull ${{ inputs.service_name }}
-
-            echo "[DEPLOY] docker compose up -d ${{ inputs.service_name }}"
-            docker compose up -d ${{ inputs.service_name }}
-
-            echo "[CLEANUP] remove unused images"
-            docker image prune -af || true
-            EOF
+            - name: Deploy to server
+              run: |
+                SCRIPT="
+                set -e
+                cd /opt/business_meeting
+      
+                echo '[DEPLOY] docker compose pull ${{ inputs.service_name }}'
+                docker compose pull ${{ inputs.service_name }}
+      
+                echo '[DEPLOY] docker compose up -d ${{ inputs.service_name }}'
+                docker compose up -d ${{ inputs.service_name }}
+      
+                echo '[CLEANUP] remove unused images'
+                docker image prune -af || true
+                "
+                ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
+                  "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" "$SCRIPT"
