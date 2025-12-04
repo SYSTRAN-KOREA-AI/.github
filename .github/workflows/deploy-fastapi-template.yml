@@ -155,3 +155,60 @@ jobs:
             echo "[CLEANUP] remove unused images"
             docker image prune -af || true
             '
+
+  notify_slack:
+    runs-on: ubuntu-latest
+    needs: [deploy_to_server]
+    if: always() # Job always runs, logic inside determines if a notification is sent
+    steps:
+      - name: Checkout .github repo to get user map
+        uses: actions/checkout@v4
+        with:
+          repository: SYSTRAN-KOREA-AI/.github
+          path: '.github-meta'
+
+      - name: Read notification policy from map
+        id: policy
+        run: |
+          USER_MAP_FILE=".github-meta/user-map.json"
+          SERVICE_NAME="${{ inputs.SERVICE_NAME }}"
+          
+          # 1. Check if notifications are enabled for this service. Default to false if not specified.
+          IS_ENABLED=$(jq -r ".projects[\"$SERVICE_NAME\"].notify // \"false\"" $USER_MAP_FILE)
+          echo "is_enabled=$IS_ENABLED" >> "$GITHUB_OUTPUT"
+          
+          # 2. Find project owner's GitHub username from the service name
+          OWNER_USERNAME=$(jq -r ".projects[\"$SERVICE_NAME\"].owner // \"null\"" $USER_MAP_FILE)
+          
+          # 3. Determine which GitHub username to use (owner, or actor if no owner)
+          if [ "$OWNER_USERNAME" != "null" ]; then
+            TARGET_USERNAME=$OWNER_USERNAME
+          else
+            TARGET_USERNAME="${{ github.actor }}"
+          fi
+          echo "target_user=$TARGET_USERNAME" >> "$GITHUB_OUTPUT"
+
+      - name: Get Slack User ID for target
+        id: slack-user
+        if: steps.policy.outputs.is_enabled == 'true'
+        run: |
+          USER_MAP_FILE=".github-meta/user-map.json"
+          TARGET_USERNAME="${{ steps.policy.outputs.target_user }}"
+          
+          # Get the Slack ID for the target username (fallback to 'channel')
+          SLACK_USER_ID=$(jq -r ".users[\"$TARGET_USERNAME\"] // \"channel\"" $USER_MAP_FILE)
+          
+          echo "SLACK_MENTION=<@$SLACK_USER_ID>" >> "$GITHUB_OUTPUT"
+
+      - name: Send Slack Notification
+        if: steps.policy.outputs.is_enabled == 'true'
+        uses: act10ns/slack@v2
+        with:
+          status: ${{ needs.deploy_to_server.result }}
+          message: |
+            ${{ steps.slack-user.outputs.SLACK_MENTION }} *${{ inputs.SERVICE_NAME }}* 서비스의 *${{ inputs.PROFILE }}* 환경 배포가 종료되었습니다.
+            • *결과:* `${{ needs.deploy_to_server.result }}`
+            • *실행자:* `${{ github.actor }}`
+            • <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|워크플로우 실행 로그 보기>
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
