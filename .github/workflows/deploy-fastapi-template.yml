@@ -13,6 +13,9 @@ on:
       BASE_REMOTE_PATH:
         required: true
         type: string
+      PROFILE:
+        required: true
+        type: string
     secrets:
       PREFIX_HOST:
         required: true
@@ -25,6 +28,12 @@ on:
       DOCKERHUB_TOKEN:
         required: true
       BASE64_KEY:
+        required: true
+      ENV_DEV_FILE:
+        required: true
+      ENV_STAGE_FILE:
+        required: true
+      ENV_PROD_FILE:
         required: true
 
 jobs:
@@ -51,6 +60,13 @@ jobs:
           key: ${{ runner.os }}-pip-${{ steps.python.outputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-${{ steps.python.outputs.python-version }}-
+
+      - name: Create profile-specific .env files
+        run: |
+          echo "${{ secrets.ENV_DEV_FILE }}" > .env.dev
+          echo "${{ secrets.ENV_STAGE_FILE }}" > .env.stage
+          echo "${{ secrets.ENV_PROD_FILE }}" > .env.prod
+        working-directory: ${{ inputs.SERVICE_NAME }}
 
       - name: Install dependencies
         run: |
@@ -126,6 +142,9 @@ jobs:
             "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" '
             set -e
             cd ${{ inputs.BASE_REMOTE_PATH }}
+
+            # Set the active profile for the container
+            export APP_ENV=${{ inputs.PROFILE }}
 
             echo "[DEPLOY] docker compose pull ${{ inputs.SERVICE_NAME }}"
             docker compose pull ${{ inputs.SERVICE_NAME }}
