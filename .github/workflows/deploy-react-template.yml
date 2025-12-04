@@ -6,7 +6,7 @@ on:
       SERVICE_NAME:
         required: true
         type: string
-      TARGET_REMOTE_PATH:
+      BASE_REMOTE_PATH:
         required: true
         type: string
     secrets:
@@ -101,13 +101,13 @@ jobs:
         run: |
           echo "Deploying dist folder via rsync..."
           rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no -i private_key -p ${{ steps.port.outputs.port }}" \
-            ./dist-download/dist/ "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}:${{ inputs.TARGET_REMOTE_PATH }}/"
+            ./dist-download/ "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}:${{ inputs.BASE_REMOTE_PATH }}/nginx/dist/"
 
           echo "Restarting Nginx container..."
           ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
             "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" '
             set -e
-            cd /opt/business_meeting
+            cd ${{ inputs.BASE_REMOTE_PATH }}
             docker compose restart nginx
             echo "Nginx container restarted successfully."
             '

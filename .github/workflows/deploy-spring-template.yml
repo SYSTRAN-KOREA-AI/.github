@@ -6,7 +6,7 @@ on:
       SERVICE_NAME:
         required: true
         type: string
-      TARGET_REMOTE_PATH:
+      BASE_REMOTE_PATH:
         required: true
         type: string
     secrets:
@@ -54,7 +54,7 @@ jobs:
 
       - name: Create application.yml
         run: |
-          echo "${{ secrets.APP_YML }}" > ./src/main/resources/application.yml
+          echo "${{ secrets.APP_YML }}" > ./src/main/resources/application-prod.yml
 
       - name: Build jar (bootJar + config cache)
         run: |
@@ -133,7 +133,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
             "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" '
             set -e
-            cd ${{ inputs.TARGET_REMOTE_PATH }}
+            cd ${{ inputs.BASE_REMOTE_PATH }}
 
             echo "[DEPLOY] docker compose pull ${{ inputs.SERVICE_NAME }}"
             docker compose pull ${{ inputs.SERVICE_NAME }}
