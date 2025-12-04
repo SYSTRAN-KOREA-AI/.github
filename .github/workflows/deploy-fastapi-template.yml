@@ -82,21 +82,21 @@ jobs:
         id: host
         run: |
           RAW="${{ secrets.PREFIX_HOST }}"
-          HOST="${{ RAW#systran- }}"
+          HOST="${RAW#systran-}"
           echo "host=$HOST" >> "$GITHUB_OUTPUT"
 
       - name: Normalize port
         id: port
         run: |
           RAW="${{ secrets.PREFIX_PORT }}"
-          PORT="${{ RAW#systran- }}"
+          PORT="${RAW#systran-}"
           echo "port=$PORT" >> "$GITHUB_OUTPUT"
 
       - name: Normalize user
         id: user
         run: |
           RAW="${{ secrets.PREFIX_USER }}"
-          USER="${{ RAW#systran- }}"
+          USER="${RAW#systran-}"
           echo "user=$USER" >> "$GITHUB_OUTPUT"
 
       # SSH Login & Deploy
