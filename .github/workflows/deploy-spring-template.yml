@@ -31,6 +31,8 @@ on:
         required: true
       APP_PROD_YML: # New secret for prod config
         required: true
+      SLACK_WEBHOOK_URL:
+        required: true
 
 jobs:
   build_and_push_dockerhub:
