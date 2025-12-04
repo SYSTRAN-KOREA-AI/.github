@@ -73,6 +73,21 @@ jobs:
         run: |
           docker push jaepil9/${{ inputs.SERVICE_NAME }}:latest
 
+      - name: Cleanup old Docker Hub tags (keep only latest)
+        run: |
+          TAGS=$(curl -s "https://hub.docker.com/v2/repositories/jaepil9/${{ inputs.SERVICE_NAME }}/tags?page_size=100" \
+            | jq -r '.results[].name')
+
+          for TAG in $TAGS; do
+            if [ "$TAG" != "latest" ]; then
+              echo "Deleting tag: $TAG"
+              TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
+              curl -s -X DELETE \
+                -H "Authorization: JWT ${TOKEN}" \
+                "https://hub.docker.com/v2/repositories/jaepil9/${{ inputs.SERVICE_NAME }}/tags/$TAG/"
+            fi
+          done
+
   deploy_to_server:
     runs-on: ubuntu-latest
     needs: build_and_push_dockerhub
@@ -117,4 +132,7 @@ jobs:
 
             echo "[DEPLOY] docker compose up -d ${{ inputs.SERVICE_NAME }}"
             docker compose up -d ${{ inputs.SERVICE_NAME }}
+
+            echo "[CLEANUP] remove unused images"
+            docker image prune -af || true
             '
