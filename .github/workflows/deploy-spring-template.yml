@@ -9,6 +9,9 @@ on:
       BASE_REMOTE_PATH:
         required: true
         type: string
+      PROFILE: # New input for the selected profile (dev/stage/prod)
+        required: true
+        type: string
     secrets:
       PREFIX_HOST:
         required: true
@@ -22,7 +25,11 @@ on:
         required: true
       BASE64_KEY:
         required: true
-      APP_YML:
+      APP_DEV_YML: # New secret for dev config
+        required: true
+      APP_STAGE_YML: # New secret for stage config
+        required: true
+      APP_PROD_YML: # New secret for prod config
         required: true
 
 jobs:
@@ -51,9 +58,12 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Create application.yml
+      - name: Create profile-specific application.yml files
         run: |
-          echo "${{ secrets.APP_YML }}" > ./src/main/resources/application-prod.yml
+          mkdir -p ./src/main/resources
+          echo "${{ secrets.APP_DEV_YML }}" > ./src/main/resources/application-dev.yml
+          echo "${{ secrets.APP_STAGE_YML }}" > ./src/main/resources/application-stage.yml
+          echo "${{ secrets.APP_PROD_YML }}" > ./src/main/resources/application-prod.yml
 
       - name: Build jar (bootJar + config cache)
         run: |
@@ -70,19 +80,19 @@ jobs:
 
       - name: Build image
         run: |
-          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.SERVICE_NAME }}:latest"
+          IMAGE="jaepil9/${{ inputs.SERVICE_NAME }}:latest"
           echo "[BUILD] $IMAGE"
           docker build -t "$IMAGE" .
 
       - name: Push image
         run: |
-          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.SERVICE_NAME }}:latest"
+          IMAGE="jaepil9/${{ inputs.SERVICE_NAME }}:latest"
           echo "[PUSH] $IMAGE"
           docker push "$IMAGE"
 
       - name: Cleanup old Docker Hub tags (keep only latest)
         run: |
-          TAGS=$(curl -s "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.SERVICE_NAME }}/tags?page_size=100" \
+          TAGS=$(curl -s "https://hub.docker.com/v2/repositories/jaepil9/${{ inputs.SERVICE_NAME }}/tags?page_size=100" \
             | jq -r '.results[].name')
 
           for TAG in $TAGS; do
@@ -91,7 +101,7 @@ jobs:
               TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
               curl -s -X DELETE \
                 -H "Authorization: JWT ${TOKEN}" \
-                "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.SERVICE_NAME }}/tags/$TAG/"
+                "https://hub.docker.com/v2/repositories/jaepil9/${{ inputs.SERVICE_NAME }}/tags/$TAG/"
             fi
           done
 
@@ -133,6 +143,9 @@ jobs:
             "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" '
             set -e
             cd ${{ inputs.BASE_REMOTE_PATH }}
+            
+            # Set the active profile based on the input from the caller workflow
+            export SPRING_PROFILES_ACTIVE=${{ inputs.PROFILE }}
 
             echo "[DEPLOY] docker compose pull ${{ inputs.SERVICE_NAME }}"
             docker compose pull ${{ inputs.SERVICE_NAME }}
