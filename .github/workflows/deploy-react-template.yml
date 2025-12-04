@@ -20,12 +20,6 @@ on:
         required: true
       BASE64_KEY:
         required: true
-      # DOCKERHUB_USERNAME is not strictly needed for React deployments but kept for consistency
-      DOCKERHUB_USERNAME:
-        required: false
-      # DOCKERHUB_TOKEN is not strictly needed for React deployments but kept for consistency
-      DOCKERHUB_TOKEN:
-        required: false
 
 jobs:
   build_app:
@@ -34,18 +28,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          repository: SYSTRAN-KOREA-AI/${{ inputs.SERVICE_NAME }} # Checkout the specific service repo
-          path: ${{ inputs.SERVICE_NAME }} # Checkout into a directory named after the service
+          repository: SYSTRAN-KOREA-AI/${{ inputs.SERVICE_NAME }}
+          path: ${{ inputs.SERVICE_NAME }}
           fetch-depth: 0
 
       - name: Set up Node.js
+        id: node
         uses: actions/setup-node@v4
         with:
           node-version: '20' # Assuming Node.js 20.x, adjust if frontend-main uses a different version
 
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ steps.node.outputs.version }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ steps.node.outputs.version }}-npm-
+
       - name: Create .env file
-        run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
+        run: echo "${{ secrets.ENV_FILE }}" > .env
         working-directory: ${{ inputs.SERVICE_NAME }}
 
       - name: Install dependencies and build
@@ -70,7 +72,7 @@ jobs:
           name: dist-artifact
           path: dist-download
 
-      # prefix 제거 (backend template와 동일)
+      # prefix 제거
       - name: Normalize host
         id: host
         run: |
