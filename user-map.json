@@ -1,0 +1,18 @@
+{
+  "users": {
+    "paul.seo": "U07S6QPJNH5"
+  },
+  "projects": {
+    "frontend-demo": {
+      "notify": true,
+      "owner": "paul.seo"
+    },
+    "e2e-test": {
+      "notify": true,
+      "owner": "paul.seo"
+    },
+    "fastapi-demo": {
+      "notify": false
+    }
+  }
+}
