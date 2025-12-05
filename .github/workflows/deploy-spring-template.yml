@@ -32,7 +32,7 @@ on:
       APP_PROD_YML: # New secret for prod config
         required: true
       SLACK_WEBHOOK_URL:
-        required: false
+        required: true
 
 jobs:
   build_and_push_dockerhub:
@@ -154,9 +154,6 @@ jobs:
 
             echo "[DEPLOY] docker compose up -d ${{ inputs.SERVICE_NAME }}"
             docker compose up -d ${{ inputs.SERVICE_NAME }}
-
-            echo "[CLEANUP] remove unused images"
-            docker image prune -af || true
 
             echo "[CLEANUP] remove unused images"
             docker image prune -af || true

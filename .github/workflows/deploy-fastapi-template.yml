@@ -35,6 +35,8 @@ on:
         required: true
       ENV_PROD_FILE:
         required: true
+      SLACK_WEBHOOK_URL:
+        required: true
 
 jobs:
   build_and_push_dockerhub:
