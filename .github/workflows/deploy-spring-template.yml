@@ -146,14 +146,11 @@ jobs:
             set -e
             cd ${{ inputs.BASE_REMOTE_PATH }}
             
-            # Set the active profile based on the input from the caller workflow
-            export SPRING_PROFILES_ACTIVE=${{ inputs.PROFILE }}
-
             echo "[DEPLOY] docker compose pull ${{ inputs.SERVICE_NAME }}"
             docker compose pull ${{ inputs.SERVICE_NAME }}
 
             echo "[DEPLOY] docker compose up -d ${{ inputs.SERVICE_NAME }}"
-            docker compose up -d ${{ inputs.SERVICE_NAME }}
+            SPRING_PROFILE=${{ inputs.PROFILE }} docker compose up -d ${{ inputs.SERVICE_NAME }}
 
             echo "[CLEANUP] remove unused images"
             docker image prune -af || true
@@ -168,21 +165,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: SYSTRAN-KOREA-AI/.github
-          path: '.github-meta'
+          path: ".github-meta"
 
       - name: Read notification policy from map
         id: policy
         run: |
           USER_MAP_FILE=".github-meta/user-map.json"
           SERVICE_NAME="${{ inputs.SERVICE_NAME }}"
-          
+
           # 1. Check if notifications are enabled for this service. Default to false if not specified.
           IS_ENABLED=$(jq -r ".projects[\"$SERVICE_NAME\"].notify // \"false\"" $USER_MAP_FILE)
           echo "is_enabled=$IS_ENABLED" >> "$GITHUB_OUTPUT"
-          
+
           # 2. Find project owner's GitHub username from the service name
           OWNER_USERNAME=$(jq -r ".projects[\"$SERVICE_NAME\"].owner // \"null\"" $USER_MAP_FILE)
-          
+
           # 3. Determine which GitHub username to use (owner, or actor if no owner)
           if [ "$OWNER_USERNAME" != "null" ]; then
             TARGET_USERNAME=$OWNER_USERNAME
@@ -197,10 +194,10 @@ jobs:
         run: |
           USER_MAP_FILE=".github-meta/user-map.json"
           TARGET_USERNAME="${{ steps.policy.outputs.target_user }}"
-          
+
           # Get the Slack ID for the target username (fallback to 'channel')
           SLACK_USER_ID=$(jq -r ".users[\"$TARGET_USERNAME\"] // \"channel\"" $USER_MAP_FILE)
-          
+
           echo "SLACK_MENTION=<@$SLACK_USER_ID>" >> "$GITHUB_OUTPUT"
 
       - name: Send Slack Notification
