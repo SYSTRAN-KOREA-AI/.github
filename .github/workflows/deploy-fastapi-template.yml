@@ -17,11 +17,11 @@ on:
         required: true
         type: string
     secrets:
-      PREFIX_HOST:
+      SERVER_HOST:
         required: true
-      PREFIX_PORT:
+      SERVER_PORT:
         required: true
-      PREFIX_USER:
+      SERVER_USER:
         required: true
       DOCKERHUB_USERNAME:
         required: true
@@ -110,28 +110,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build_and_push_dockerhub
     steps:
-      # prefix 제거
-      - name: Normalize host
-        id: host
-        run: |
-          RAW="${{ secrets.PREFIX_HOST }}"
-          HOST="${RAW#systran-}"
-          echo "host=$HOST" >> "$GITHUB_OUTPUT"
-
-      - name: Normalize port
-        id: port
-        run: |
-          RAW="${{ secrets.PREFIX_PORT }}"
-          PORT="${RAW#systran-}"
-          echo "port=$PORT" >> "$GITHUB_OUTPUT"
-
-      - name: Normalize user
-        id: user
-        run: |
-          RAW="${{ secrets.PREFIX_USER }}"
-          USER="${RAW#systran-}"
-          echo "user=$USER" >> "$GITHUB_OUTPUT"
-
       # SSH Login & Deploy
       - name: Prepare SSH key
         run: |
@@ -140,8 +118,8 @@ jobs:
 
       - name: Deploy to server
         run: |
-          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
-            "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" '
+          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ secrets.SERVER_PORT }}" \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" '
             set -e
             cd ${{ inputs.BASE_REMOTE_PATH }}
 

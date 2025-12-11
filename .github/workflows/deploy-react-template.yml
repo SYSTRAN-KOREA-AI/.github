@@ -11,11 +11,11 @@ on:
         required: true
         type: string
     secrets:
-      PREFIX_HOST:
+      SERVER_HOST:
         required: true
-      PREFIX_PORT:
+      SERVER_PORT:
         required: true
-      PREFIX_USER:
+      SERVER_USER:
         required: true
       BASE64_KEY:
         required: true
@@ -83,28 +83,6 @@ jobs:
           name: dist-artifact
           path: dist-download
 
-      # prefix 제거
-      - name: Normalize host
-        id: host
-        run: |
-          RAW="${{ secrets.PREFIX_HOST }}"
-          HOST="${RAW#systran-}"
-          echo "host=$HOST" >> "$GITHUB_OUTPUT"
-
-      - name: Normalize port
-        id: port
-        run: |
-          RAW="${{ secrets.PREFIX_PORT }}"
-          PORT="${RAW#systran-}"
-          echo "port=$PORT" >> "$GITHUB_OUTPUT"
-
-      - name: Normalize user
-        id: user
-        run: |
-          RAW="${{ secrets.PREFIX_USER }}"
-          USER="${RAW#systran-}"
-          echo "user=$USER" >> "$GITHUB_OUTPUT"
-
       - name: Prepare SSH key
         run: |
           echo "${{ secrets.BASE64_KEY }}" | base64 --decode > private_key
@@ -113,12 +91,12 @@ jobs:
       - name: Deploy to server and restart Nginx
         run: |
           echo "Deploying dist folder via rsync..."
-          rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no -i private_key -p ${{ steps.port.outputs.port }}" \
-            ./dist-download/ "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}:${{ inputs.BASE_REMOTE_PATH }}/nginx/dist/"
+          rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no -i private_key -p ${{ secrets.SERVER_PORT }}" \
+            ./dist-download/ "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ inputs.BASE_REMOTE_PATH }}/nginx/dist/"
 
           echo "Restarting Nginx container..."
-          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
-            "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" '
+          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ secrets.SERVER_PORT }}" \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" '
             set -e
             cd ${{ inputs.BASE_REMOTE_PATH }}
             docker compose restart nginx
