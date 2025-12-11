@@ -112,26 +112,26 @@ jobs:
     needs: build_and_push_dockerhub
     steps:
       # prefix 제거
-      - name: Normalize host
-        id: host
-        run: |
-          RAW="${{ secrets.PREFIX_HOST }}"
-          HOST="${RAW#systran-}"
-          echo "host=$HOST" >> "$GITHUB_OUTPUT"
-
-      - name: Normalize port
-        id: port
-        run: |
-          RAW="${{ secrets.PREFIX_PORT }}"
-          PORT="${RAW#systran-}"
-          echo "port=$PORT" >> "$GITHUB_OUTPUT"
-
-      - name: Normalize user
-        id: user
-        run: |
-          RAW="${{ secrets.PREFIX_USER }}"
-          USER="${RAW#systran-}"
-          echo "user=$USER" >> "$GITHUB_OUTPUT"
+#      - name: Normalize host
+#        id: host
+#        run: |
+#          RAW="${{ secrets.PREFIX_HOST }}"
+#          HOST="${RAW#systran-}"
+#          echo "host=$HOST" >> "$GITHUB_OUTPUT"
+#
+#      - name: Normalize port
+#        id: port
+#        run: |
+#          RAW="${{ secrets.PREFIX_PORT }}"
+#          PORT="${RAW#systran-}"
+#          echo "port=$PORT" >> "$GITHUB_OUTPUT"
+#
+#      - name: Normalize user
+#        id: user
+#        run: |
+#          RAW="${{ secrets.PREFIX_USER }}"
+#          USER="${RAW#systran-}"
+#          echo "user=$USER" >> "$GITHUB_OUTPUT"
 
       # SSH Login & Deploy
       - name: Prepare SSH key
@@ -141,8 +141,8 @@ jobs:
 
       - name: Deploy to server
         run: |
-          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
-            "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" '
+          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ secrets.PREFIX_PORT }}" \
+            "${{ secrets.PREFIX_USER }}@${{ secrets.PREFIX_HOST }}" '
             set -e
             cd ${{ inputs.BASE_REMOTE_PATH }}
             
