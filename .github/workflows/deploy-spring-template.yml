@@ -125,17 +125,17 @@ jobs:
           
           ssh -o StrictHostKeyChecking=no -i private_key -p "$PORT" "$USER@$HOST" '
               set -e
-            cd ${{ inputs.BASE_REMOTE_PATH }}
+            cd '"${{ inputs.BASE_REMOTE_PATH }}"'
             
             # Set the active profile based on the input from the caller workflow
-            export SPRING_PROFILES_ACTIVE=${{ inputs.PROFILE }}
+            export SPRING_PROFILES_ACTIVE='"${{ inputs.PROFILE }}"'
 
-            echo "[DEPLOY] docker compose pull ${{ inputs.SERVICE_NAME }}"
-            docker compose pull ${{ inputs.SERVICE_NAME }}
-
-            echo "[DEPLOY] docker compose up -d ${{ inputs.SERVICE_NAME }}"
-            docker compose up -d ${{ inputs.SERVICE_NAME }}
-
+            echo "[DEPLOY] docker compose pull '"${{ inputs.SERVICE_NAME }}"'"
+            docker compose pull '"${{ inputs.SERVICE_NAME }}"'
+      
+            echo "[DEPLOY] docker compose up -d '"${{ inputs.SERVICE_NAME }}"'"
+            docker compose up -d '"${{ inputs.SERVICE_NAME }}"'
+      
             echo "[CLEANUP] remove unused images"
             docker image prune -af || true
             '
