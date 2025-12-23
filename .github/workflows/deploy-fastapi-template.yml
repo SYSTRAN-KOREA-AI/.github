@@ -118,8 +118,10 @@ jobs:
 
       - name: Deploy to server
         run: |
-          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ secrets.SERVER_PORT }}" \
-            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" '
+          ssh -o StrictHostKeyChecking=no \
+              -i private_key \
+              -p "${{ secrets.SERVER_PORT }}" \
+              "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
             set -e
             cd ${{ inputs.BASE_REMOTE_PATH }}
 
