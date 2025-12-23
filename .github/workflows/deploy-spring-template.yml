@@ -13,11 +13,11 @@ on:
         required: true
         type: string
     secrets:
-      SERVER_HOST:
+      PREFIX_HOST:
         required: true
-      SERVER_PORT:
+      PREFIX_PORT:
         required: true
-      SERVER_USER:
+      PREFIX_USER:
         required: true
       DOCKERHUB_USERNAME:
         required: true
@@ -111,19 +111,31 @@ jobs:
     runs-on: ubuntu-latest
     needs: build_and_push_dockerhub
     steps:
+      - name: Debug inputs (SAFE)
+        run: |
+          echo "SERVICE_NAME=${{ inputs.SERVICE_NAME }}"
+          echo "PROFILE=${{ inputs.PROFILE }}"
+          echo "HOST provided=${{ secrets.PREFIX_HOST != '' }}"
+          echo "PORT provided=${{ secrets.PREFIX_PORT != '' }}"
+          echo "USER provided=${{ secrets.PREFIX_USER != '' }}"
+          echo "BASE64_KEY provided=${{ secrets.BASE64_KEY != '' }}"
       # SSH Login & Deploy
       - name: Prepare SSH key
         run: |
           echo "${{ secrets.BASE64_KEY }}" | base64 --decode > private_key
           chmod 600 private_key
 
+      - name: Show SSH key fingerprint
+        run: |
+          ssh-keygen -lf private_key
+
       - name: Deploy to server
         run: |
-          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ secrets.SERVER_PORT }}" \
-            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" '
+          ssh -o StrictHostKeyChecking=no -i private_key -p "${{ steps.port.outputs.port }}" \
+            "${{ steps.user.outputs.user }}@${{ steps.host.outputs.host }}" '
             set -e
             cd ${{ inputs.BASE_REMOTE_PATH }}
-            
+          
             echo "[DEPLOY] docker compose pull ${{ inputs.SERVICE_NAME }}"
             docker compose pull ${{ inputs.SERVICE_NAME }}
 
