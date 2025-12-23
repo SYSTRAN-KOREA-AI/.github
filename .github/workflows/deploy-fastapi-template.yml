@@ -124,24 +124,23 @@ jobs:
           BASE_PATH="${{ inputs.BASE_REMOTE_PATH }}"
           PROFILE="${{ inputs.PROFILE }}"
           SERVICE="${{ inputs.SERVICE_NAME }}"
-          
+
           ssh -o StrictHostKeyChecking=no -i private_key -p "$PORT" "$USER@$HOST" << EOF
-            set -e
-            
-            cd "$BASE_PATH"
+          set -e
 
-            # Set the active profile for the container
-            export APP_ENV="$PROFILE"
+          cd "$BASE_PATH"
 
-            echo "[DEPLOY] docker compose pull "$SERVICE"
-            docker compose pull "$SERVICE"
+          export APP_ENV="$PROFILE"
 
-            echo "[DEPLOY] docker compose up -d $SERVICE"
-            docker compose up -d "$SERVICE"
+          echo "[DEPLOY] docker compose pull $SERVICE"
+          docker compose pull "$SERVICE"
 
-            echo "[CLEANUP] remove unused images"
-            docker image prune -af || true
-            EOF
+          echo "[DEPLOY] docker compose up -d $SERVICE"
+          docker compose up -d "$SERVICE"
+
+          echo "[CLEANUP] remove unused images"
+          docker image prune -af || true
+          EOF
 
   notify_slack:
     runs-on: ubuntu-latest
