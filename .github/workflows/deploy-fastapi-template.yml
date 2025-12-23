@@ -118,11 +118,12 @@ jobs:
 
       - name: Deploy to server
         run: |
-          ssh -o StrictHostKeyChecking=no \
-              -i private_key \
-              -p "${{ secrets.SERVER_PORT }}" \
-              "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
-            set -e
+          HOST="${{ secrets.SERVER_HOST }}"
+          PORT="${{ secrets.SERVER_PORT }}"
+          USER="${{ secrets.SERVER_USER }}"
+          
+          ssh -o StrictHostKeyChecking=no -i private_key -p "$PORT" "$USER@$HOST" '
+              set -e
             cd ${{ inputs.BASE_REMOTE_PATH }}
 
             # Set the active profile for the container
