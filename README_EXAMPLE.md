@@ -14,13 +14,6 @@ Infrastructure: Redis, RabbitMQ
 
 Deploy: Docker, GithubActions
 
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.5-brightgreen?logo=springboot)
-![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)
-![Redis](https://img.shields.io/badge/Redis-7.x-red?logo=redis)
-![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.x-ff6600?logo=rabbitmq)
-![Docker](https://img.shields.io/badge/Docker-enabled-blue?logo=docker)
-![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI/CD-black?logo=githubactions)
-
 ---
 
 ## Person in charge
